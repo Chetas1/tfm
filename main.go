@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/creack/pty"
+	"github.com/manifoldco/promptui"
 	"golang.org/x/term"
 )
 
@@ -88,7 +89,10 @@ func main() {
 			fmt.Println("Usage: tfm new -s <session_name>")
 			os.Exit(1)
 		}
-		runClient("new", *nameFlag)
+		next := runClient("new", *nameFlag)
+		for next != "" {
+			next = runClient("attach", next)
+		}
 	case "attach":
 		nameFlag := flag.String("t", "", "Session name")
 		flag.CommandLine.Parse(os.Args[2:])
@@ -96,7 +100,10 @@ func main() {
 			fmt.Println("Usage: tfm attach -t <session_name>")
 			os.Exit(1)
 		}
-		runClient("attach", *nameFlag)
+		next := runClient("attach", *nameFlag)
+		for next != "" {
+			next = runClient("attach", next)
+		}
 	case "ls":
 		runClient("ls", "")
 	case "save":
@@ -403,7 +410,7 @@ func createSessionWithDir(name, dir string) error {
 // CLIENT
 // ---------------------------------------------------------
 
-func runClient(action, name string) {
+func runClient(action, name string) string {
 	conn := ensureDaemonConnected()
 	defer conn.Close()
 
@@ -424,7 +431,7 @@ func runClient(action, name string) {
 	if err := decoder.Decode(&resp); err != nil {
 		if err == io.EOF && (action == "ls" || action == "save" || action == "kill") {
 			// Server might have closed connection
-			return
+			return ""
 		}
 		log.Fatalf("Failed to read server response: %v", err)
 	}
@@ -440,10 +447,10 @@ func runClient(action, name string) {
 		for _, s := range resp.Sessions {
 			fmt.Printf("  %s\n", s)
 		}
-		return
+		return ""
 	case "save", "kill":
 		fmt.Println(resp.Message)
-		return
+		return ""
 	}
 
 	// For new and attach, enter raw mode and proxy I/O
@@ -495,7 +502,23 @@ func runClient(action, name string) {
 			if ctrlB {
 				if b == 'd' || b == 'D' {
 					// Detach
-					return
+					return ""
+				} else if b == 'w' || b == 'W' {
+					// Window list
+					term.Restore(int(os.Stdin.Fd()), oldState)
+					
+					sessions := fetchSessions()
+					selected := selectSession(sessions, name)
+					
+					if selected != "" && selected != name {
+						return selected
+					}
+					
+					// Re-enter raw mode
+					newState, modeErr := term.MakeRaw(int(os.Stdin.Fd()))
+					if modeErr == nil {
+						oldState = newState
+					}
 				} else if b == 2 { // Ctrl+B again to send literal Ctrl+B
 					outBuf.WriteByte(2)
 				} else {
@@ -516,6 +539,43 @@ func runClient(action, name string) {
 			conn.Write(outBuf.Bytes())
 		}
 	}
+	return ""
+}
+
+func fetchSessions() []string {
+	sockPath := getSocketPath()
+	conn, err := net.Dial("unix", sockPath)
+	if err != nil {
+		return nil
+	}
+	defer conn.Close()
+
+	req := Request{Action: "ls"}
+	json.NewEncoder(conn).Encode(req)
+
+	var resp Response
+	if err := json.NewDecoder(conn).Decode(&resp); err != nil {
+		return nil
+	}
+	return resp.Sessions
+}
+
+func selectSession(sessions []string, current string) string {
+	if len(sessions) == 0 {
+		return ""
+	}
+
+	prompt := promptui.Select{
+		Label: "Select Window",
+		Items: sessions,
+	}
+
+	_, result, err := prompt.Run()
+	if err != nil {
+		return ""
+	}
+
+	return result
 }
 
 func getTerminalSize() (uint16, uint16) {

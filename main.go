@@ -88,22 +88,30 @@ func main() {
 	case "new":
 		nameFlag := flag.String("s", "", "Session name")
 		flag.CommandLine.Parse(os.Args[2:])
-		if *nameFlag == "" {
-			fmt.Println("Usage: tfm new -s <session_name>")
+		name := *nameFlag
+		if name == "" && flag.NArg() > 0 {
+			name = flag.Arg(0)
+		}
+		if name == "" {
+			fmt.Println("Usage: tfm new [-s] <session_name>")
 			os.Exit(1)
 		}
-		next := runClient("new", *nameFlag)
+		next := runClient("new", name)
 		for next != "" {
 			next = runClient("attach", next)
 		}
 	case "attach":
 		nameFlag := flag.String("t", "", "Session name")
 		flag.CommandLine.Parse(os.Args[2:])
-		if *nameFlag == "" {
-			fmt.Println("Usage: tfm attach -t <session_name>")
+		name := *nameFlag
+		if name == "" && flag.NArg() > 0 {
+			name = flag.Arg(0)
+		}
+		if name == "" {
+			fmt.Println("Usage: tfm attach [-t] <session_name>")
 			os.Exit(1)
 		}
-		next := runClient("attach", *nameFlag)
+		next := runClient("attach", name)
 		for next != "" {
 			next = runClient("attach", next)
 		}
@@ -114,7 +122,15 @@ func main() {
 	case "kill":
 		nameFlag := flag.String("t", "", "Session name")
 		flag.CommandLine.Parse(os.Args[2:])
-		runClient("kill", *nameFlag)
+		name := *nameFlag
+		if name == "" && flag.NArg() > 0 {
+			name = flag.Arg(0)
+		}
+		if name == "" {
+			fmt.Println("Usage: tfm kill [-t] <session_name>")
+			os.Exit(1)
+		}
+		runClient("kill", name)
 	default:
 		printUsage()
 		os.Exit(1)
@@ -124,12 +140,12 @@ func main() {
 func printUsage() {
 	fmt.Println("Terminal for Mac (tfm) - A simple terminal multiplexer")
 	fmt.Println("Commands:")
-	fmt.Println("  new -s <name>     Create a new session")
-	fmt.Println("  attach -t <name>  Attach to a session")
-	fmt.Println("  ls                List active and saved sessions")
-	fmt.Println("  save              Save current sessions to disk")
-	fmt.Println("  kill -t <name>    Kill a session")
-	fmt.Println("  daemon            Start the background server")
+	fmt.Println("  new [-s] <name>     Create a new session")
+	fmt.Println("  attach [-t] <name>  Attach to a session")
+	fmt.Println("  ls                  List active and saved sessions")
+	fmt.Println("  save                Save current sessions to disk")
+	fmt.Println("  kill [-t] <name>    Kill a session")
+	fmt.Println("  daemon              Start the background server")
 }
 
 // ---------------------------------------------------------

@@ -463,14 +463,23 @@ func runClient(action, name string) string {
 		return ""
 	}
 
+	// Enter alternate screen buffer & clear screen
+	fmt.Print("\033[?1049h\033[2J\033[H")
+
 	// For new and attach, enter raw mode and proxy I/O
-	fmt.Printf("Attached to session %s. Press Ctrl+B then d to detach.\n", name)
+	fmt.Printf("Attached to session %s. Press Ctrl+B then d to detach.\r\n", name)
 
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
+		fmt.Print("\033[?1049l") // cleanup just in case
 		log.Fatalf("Failed to set raw mode: %v", err)
 	}
-	defer term.Restore(int(os.Stdin.Fd()), oldState)
+
+	defer func() {
+		// Leave alternate screen buffer and restore terminal state
+		term.Restore(int(os.Stdin.Fd()), oldState)
+		fmt.Print("\033[?1049l")
+	}()
 
 	// Handle window resizing
 	go func() {
@@ -515,6 +524,7 @@ func runClient(action, name string) string {
 					return ""
 				} else if b == 'w' || b == 'W' {
 					// Window list
+					fmt.Print("\033[?1049l") // exit alt screen
 					term.Restore(int(os.Stdin.Fd()), oldState)
 					
 					sessions := fetchSessions()
@@ -524,7 +534,8 @@ func runClient(action, name string) string {
 						return selected
 					}
 					
-					// Re-enter raw mode
+					// Re-enter raw mode and alt screen
+					fmt.Print("\033[?1049h\033[2J\033[H") // re-enter alt screen
 					newState, modeErr := term.MakeRaw(int(os.Stdin.Fd()))
 					if modeErr == nil {
 						oldState = newState

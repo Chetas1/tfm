@@ -464,7 +464,7 @@ func runClient(action, name string) string {
 	}
 
 	// Enter alternate screen buffer & clear screen
-	fmt.Print("\033[?1049h\033[H")
+	fmt.Print("\033[?1049h\033[2J\033[H")
 
 	// For new and attach, enter raw mode and proxy I/O
 	fmt.Printf("Attached to session %s. Press Ctrl+B then d to detach.\r\n", name)
@@ -535,7 +535,7 @@ func runClient(action, name string) string {
 					}
 					
 					// Re-enter raw mode and alt screen
-					fmt.Print("\033[?1049h\033[H") // re-enter alt screen
+					fmt.Print("\033[?1049h\033[2J\033[H") // re-enter alt screen
 					newState, modeErr := term.MakeRaw(int(os.Stdin.Fd()))
 					if modeErr == nil {
 						oldState = newState

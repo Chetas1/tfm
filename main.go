@@ -452,14 +452,27 @@ func runClient(action, name string) string {
 	encoder := json.NewEncoder(conn)
 	encoder.Encode(req)
 
-	decoder := json.NewDecoder(conn)
-	var resp Response
-	if err := decoder.Decode(&resp); err != nil {
-		if err == io.EOF && (action == "ls" || action == "save" || action == "kill") {
-			// Server might have closed connection
-			return ""
+	var respBytes []byte
+	singleByte := make([]byte, 1)
+	for {
+		n, err := conn.Read(singleByte)
+		if err != nil {
+			if err == io.EOF && (action == "ls" || action == "save" || action == "kill") {
+				return ""
+			}
+			log.Fatalf("Failed to read server response: %v", err)
 		}
-		log.Fatalf("Failed to read server response: %v", err)
+		if n > 0 {
+			respBytes = append(respBytes, singleByte[0])
+			if singleByte[0] == '\n' {
+				break
+			}
+		}
+	}
+
+	var resp Response
+	if err := json.Unmarshal(respBytes, &resp); err != nil {
+		log.Fatalf("Failed to parse server response: %v", err)
 	}
 
 	if resp.Error != "" {

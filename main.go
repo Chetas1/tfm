@@ -45,8 +45,11 @@ type Session struct {
 	Pty     *os.File
 	Cmd     *exec.Cmd
 	Clients map[net.Conn]bool
+	History []byte
 	mu      sync.Mutex
 }
+
+const MaxHistory = 512 * 1024 // 512KB
 
 var (
 	sessions   = make(map[string]*Session)
@@ -281,6 +284,10 @@ func pumpPty(sess *Session) {
 			break
 		}
 		sess.mu.Lock()
+		sess.History = append(sess.History, buf[:n]...)
+		if len(sess.History) > MaxHistory {
+			sess.History = sess.History[len(sess.History)-MaxHistory:]
+		}
 		for conn := range sess.Clients {
 			conn.Write(buf[:n])
 		}
@@ -299,6 +306,9 @@ func attachToSession(conn net.Conn, name string) {
 
 	sess.mu.Lock()
 	sess.Clients[conn] = true
+	if len(sess.History) > 0 {
+		conn.Write(sess.History)
+	}
 	sess.mu.Unlock()
 
 	defer func() {

@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -553,8 +554,11 @@ func runClient(action, name string) string {
 					return ""
 				} else if b == 'w' || b == 'W' {
 					// Window list
-					fmt.Print("\033[?1049l") // exit alt screen
+					// Temporarily leave raw mode to allow TUI
 					term.Restore(int(os.Stdin.Fd()), oldState)
+					
+					// Clear alternate screen buffer for menu overlay
+					fmt.Print("\033[2J\033[H")
 					
 					sessions := fetchSessions()
 					selected := selectSession(sessions, name)
@@ -563,8 +567,8 @@ func runClient(action, name string) string {
 						return selected
 					}
 					
-					// Re-enter raw mode and alt screen
-					fmt.Print("\033[?1049h\033[2J\033[H") // re-enter alt screen
+					// Re-enter raw mode and clear screen for the old session's UI
+					fmt.Print("\033[2J\033[H")
 					newState, modeErr := term.MakeRaw(int(os.Stdin.Fd()))
 					if modeErr == nil {
 						oldState = newState
@@ -615,17 +619,30 @@ func selectSession(sessions []string, current string) string {
 		return ""
 	}
 
-	prompt := promptui.Select{
-		Label: "Select Window",
-		Items: sessions,
+	var items []string
+	for i, s := range sessions {
+		prefix := "  "
+		if s == current {
+			prefix = "* "
+		}
+		items = append(items, fmt.Sprintf("%s%d) %s", prefix, i+1, s))
 	}
 
-	_, result, err := prompt.Run()
+	prompt := promptui.Select{
+		Label: "Select Window",
+		Items: items,
+		Searcher: func(input string, index int) bool {
+			return strings.Contains(strings.ToLower(items[index]), strings.ToLower(input))
+		},
+		Size: 15,
+	}
+
+	index, _, err := prompt.Run()
 	if err != nil {
 		return ""
 	}
 
-	return result
+	return sessions[index]
 }
 
 func getTerminalSize() (uint16, uint16) {

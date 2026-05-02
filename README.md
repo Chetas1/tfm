@@ -2,8 +2,8 @@
 
 > A minimal `tmux`-style terminal multiplexer with a Unix-domain-socket daemon, persistent PTY sessions, multi-client attach, and on-disk session recovery. ~700 lines of pure Go.
 
-[![CI](https://github.com/Chetas1/tfm/actions/workflows/ci.yml/badge.svg)](https://github.com/Chetas1/tfm/actions/workflows/ci.yml)
-[![Security](https://github.com/Chetas1/tfm/actions/workflows/security.yml/badge.svg)](https://github.com/Chetas1/tfm/actions/workflows/security.yml)
+[![CI](https://github.com/Chetas-Patil/tfm/actions/workflows/ci.yml/badge.svg)](https://github.com/Chetas-Patil/tfm/actions/workflows/ci.yml)
+[![Security](https://github.com/Chetas-Patil/tfm/actions/workflows/security.yml/badge.svg)](https://github.com/Chetas-Patil/tfm/actions/workflows/security.yml)
 [![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev/dl/)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)](#platform-support)
 

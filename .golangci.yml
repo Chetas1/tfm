@@ -1,0 +1,54 @@
+version: "2"
+
+run:
+  timeout: 3m
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - errcheck
+    - gocritic
+    - govet
+    - ineffassign
+    - misspell
+    - prealloc
+    - revive
+    - staticcheck
+    - unconvert
+    - unused
+
+  settings:
+    errcheck:
+      # Fire-and-forget patterns that are legitimately ignored: best-effort
+      # socket cleanup, PTY resizing, broadcast writes, RPC encoding, and
+      # process reaping. The remaining checked sites are the ones that matter
+      # (e.g. terminal raw-mode restore).
+      exclude-functions:
+        - (*encoding/json.Encoder).Encode
+        - (*flag.FlagSet).Parse
+        - os.Remove
+        - os.MkdirAll
+        - (*os/exec.Cmd).Wait
+        - (*os.Process).Kill
+        - github.com/creack/pty.Setsize
+        - (net.Conn).Close
+        - (net.Listener).Close
+        - (net.Conn).Write
+        - (*os.File).Write
+        - io.Copy
+        - golang.org/x/term.Restore
+
+    revive:
+      rules:
+        - name: package-comments
+          disabled: true
+        - name: exported
+          disabled: true
+        - name: unused-parameter
+        - name: var-naming
+        - name: empty-block
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

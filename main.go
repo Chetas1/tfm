@@ -350,7 +350,7 @@ func saveSessions() error {
 	sessionsMu.Lock()
 	defer sessionsMu.Unlock()
 
-	var saved []SavedSession
+	saved := make([]SavedSession, 0, len(sessions))
 	for _, sess := range sessions {
 		saved = append(saved, SavedSession{
 			Name: sess.Name,
@@ -363,7 +363,9 @@ func saveSessions() error {
 		return err
 	}
 
-	return os.WriteFile(getSessionsPath(), data, 0644)
+	// 0600 — sessions.json may contain session names tied to working dirs
+	// (potentially sensitive); restrict to owner-only.
+	return os.WriteFile(getSessionsPath(), data, 0600)
 }
 
 func loadSavedSessions() {
@@ -461,7 +463,8 @@ func runClient(action, name string) string {
 			if err == io.EOF && (action == "ls" || action == "save" || action == "kill") {
 				return ""
 			}
-			log.Fatalf("Failed to read server response: %v", err)
+			log.Printf("failed to read server response: %v", err)
+			break
 		}
 		if n > 0 {
 			respBytes = append(respBytes, singleByte[0])
@@ -473,12 +476,13 @@ func runClient(action, name string) string {
 
 	var resp Response
 	if err := json.Unmarshal(respBytes, &resp); err != nil {
-		log.Fatalf("Failed to parse server response: %v", err)
+		log.Printf("failed to parse server response: %v", err)
+		return ""
 	}
 
 	if resp.Error != "" {
 		fmt.Printf("Error: %s\n", resp.Error)
-		os.Exit(1)
+		return ""
 	}
 
 	switch action {
@@ -502,7 +506,8 @@ func runClient(action, name string) string {
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
 		fmt.Print("\033[?1049l") // cleanup just in case
-		log.Fatalf("Failed to set raw mode: %v", err)
+		log.Printf("failed to set raw mode: %v", err)
+		return ""
 	}
 
 	defer func() {
@@ -549,33 +554,33 @@ func runClient(action, name string) string {
 		for i := 0; i < n; i++ {
 			b := buf[i]
 			if ctrlB {
-				if b == 'd' || b == 'D' {
+				switch b {
+				case 'd', 'D':
 					// Detach
 					return ""
-				} else if b == 'w' || b == 'W' {
-					// Window list
-					// Temporarily leave raw mode to allow TUI
+				case 'w', 'W':
+					// Window list — temporarily leave raw mode to allow TUI
 					term.Restore(int(os.Stdin.Fd()), oldState)
-					
+
 					// Clear alternate screen buffer for menu overlay
 					fmt.Print("\033[2J\033[H")
-					
+
 					sessions := fetchSessions()
 					selected := selectSession(sessions, name)
-					
+
 					if selected != "" && selected != name {
 						return selected
 					}
-					
+
 					// Re-enter raw mode and clear screen for the old session's UI
 					fmt.Print("\033[2J\033[H")
 					newState, modeErr := term.MakeRaw(int(os.Stdin.Fd()))
 					if modeErr == nil {
 						oldState = newState
 					}
-				} else if b == 2 { // Ctrl+B again to send literal Ctrl+B
+				case 2: // Ctrl+B again to send literal Ctrl+B
 					outBuf.WriteByte(2)
-				} else {
+				default:
 					outBuf.WriteByte(2)
 					outBuf.WriteByte(b)
 				}
